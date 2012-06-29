@@ -4,16 +4,16 @@ Capistrano::Configuration.instance.load do
       dump
       import
     end
-    
+
     task :setup do
-      set :mysqldump_config, YAML.load_file("config/database.yml")[rails_env.to_s]    
-      host = mysqldump_config["host"]
+      remote_configuration = YAML.load capture("cat '#{File.join(current_path, 'config/database.yml')}'")
+      set :mysqldump_config, remote_configuration[rails_env.to_s]
 
       # overwrite these if necessary
-      set :mysqldump_bin, "/usr/local/mysql/bin/mysqldump" unless exists?(:mysqldump_bin)
+      set :mysqldump_bin, "mysqldump" unless exists?(:mysqldump_bin)
       set :mysqldump_remote_tmp_dir, "/tmp" unless exists?(:mysqldump_remote_tmp_dir)
       set :mysqldump_local_tmp_dir, "/tmp" unless exists?(:mysqldump_local_tmp_dir)
-      set :mysqldump_location, host && host.any? && host != "localhost" ? :local : :remote unless exists?(:mysqldump_location)
+      set :mysqldump_location, :remote
 
       # for convenience
       set :mysqldump_filename, "%s-%s.sql" % [application, Time.now.to_i]
@@ -24,12 +24,11 @@ Capistrano::Configuration.instance.load do
     end
 
     task :dump, :roles => :db do
-      setup 
+      setup
       username, password, database, host = mysqldump_config.values_at *%w( username password database host )
 
       mysqldump_cmd = "%s --quick --single-transaction" % mysqldump_bin
       mysqldump_cmd += " -h #{host}" if host && host.any?
-      
       case mysqldump_location
       when :remote
         mysqldump_cmd += " -u %s -p %s" % [ username, database ]
@@ -41,7 +40,6 @@ Capistrano::Configuration.instance.load do
 
         download mysqldump_remote_filename, mysqldump_local_filename_gz, :via => :scp
         run "rm #{mysqldump_remote_filename}"
-        
         `gunzip #{mysqldump_local_filename_gz}`
       when :local
         mysqldump_cmd += " -u %s" % username
