@@ -28,7 +28,7 @@ Capistrano::Configuration.instance.load do
       username, password, database, host = mysqldump_config.values_at *%w( username password database host )
 
       mysqldump_cmd = "%s --quick --single-transaction" % mysqldump_bin
-      mysqldump_cmd += " -h #{host}" if host && host.any?
+      mysqldump_cmd += " -h #{host}" if host && !host.strip.empty?
       case mysqldump_location
       when :remote
         mysqldump_cmd += " -u %s -p %s" % [ username, database ]
